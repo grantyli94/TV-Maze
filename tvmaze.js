@@ -119,7 +119,7 @@ $searchForm.on("submit", async function (evt) {
 
 async function getEpisodesOfShow(id) { 
   // let response = await axios.get(`${BASE_URL}/shows/${$(".show").attr("data-show-id")}/episodes`)
-  let response = await axios.get(`${TV_MAZE_BASE_URL}/shows/431/episodes`)
+  let response = await axios.get(`${TV_MAZE_BASE_URL}/shows/${id}/episodes`)
 
   console.log(response);
 }
