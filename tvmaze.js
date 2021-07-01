@@ -3,9 +3,14 @@
 const $showsList = $("#showsList");
 const $episodesArea = $("#episodesArea");
 const $searchForm = $("#searchForm");
+const $episodeButton = $(".Show-getEpisodes",);
+
 const TV_MAZE_BASE_URL = "http://api.tvmaze.com";
 const MISSING_IMG = "https://tinyurl.com/tv-missing";
-const SHOWS_PER_PAGE = 10;
+
+// const SHOWS_PER_PAGE = 10;
+const EPISODES_PER_CLICK = 10;
+
 
 
 
@@ -17,57 +22,46 @@ const SHOWS_PER_PAGE = 10;
  */
 
 async function getShowsByTerm(term) {
-  // ADD: Remove placeholder & make request to TVMaze search shows API.
-  let response = await axios.get(`${TV_MAZE_BASE_URL}/search/shows`, {params:{q: term}})
-
-  let shows = [];
-  for (let i = 0; i < SHOWS_PER_PAGE; i++) {
-
-    if (response.data[i] === undefined){
-      break;
-    }
-
-    let id = response.data[i].show.id;
-    let name = response.data[i].show.name;
-
-    let summary = response.data[i].show.summary;
-    if (summary === null) {
-      summary = "No Summary";
-    }
-
-    let image = response.data[i].show.image;
-    if (image === null) {
-      image = MISSING_IMG;
-    } else {
-      image = response.data[i].show.image.medium;
-    }
-    shows.push({id, name, summary, image});
-  }
   
-  return shows;
+  let response = await axios.get(`${TV_MAZE_BASE_URL}/search/shows`, {params:{q: term}})
+  
+  return response.data.map(result => (
+    {
+      id: result.show.id, 
+      name: result.show.name, 
+      summary: result.show.summary ? result.show.summary : "No summary available", 
+      image: result.show.image ? result.show.image.medium : MISSING_IMG
+    }
+  ))
 
-  // return [
-  //   {
-  //     id: 1767,
-  //     name: "The Bletchley Circle",
-  //     summary:
-  //       `<p><b>The Bletchley Circle</b> follows the journey of four ordinary 
-  //          women with extraordinary skills that helped to end World War II.</p>
-  //        <p>Set in 1952, Susan, Millie, Lucy and Jean have returned to their 
-  //          normal lives, modestly setting aside the part they played in 
-  //          producing crucial intelligence, which helped the Allies to victory 
-  //          and shortened the war. When Susan discovers a hidden code behind an
-  //          unsolved murder she is met by skepticism from the police. She 
-  //          quickly realises she can only begin to crack the murders and bring
-  //          the culprit to justice with her former friends.</p>`,
-  //     image:
-  //         "http://static.tvmaze.com/uploads/images/medium_portrait/147/369403.jpg"
+  // for (let i = 0; i < SHOWS_PER_PAGE; i++) {
+
+  //   if (response.data[i] === undefined){
+  //     break;
   //   }
-  // ]
+
+  //   let id = response.data[i].show.id;
+  //   let name = response.data[i].show.name;
+
+  //   let summary = response.data[i].show.summary;
+  //   if (summary === null) {
+  //     summary = "No Summary";
+  //   }
+
+  //   let image = response.data[i].show.image;
+  //   if (image === null) {
+  //     image = MISSING_IMG;
+  //   } else {
+  //     image = response.data[i].show.image.medium;
+  //   }
+  //   shows.push({id, name, summary, image});
+  // }
+  
+  // return shows;
 }
 
 
-/** Given list of shows, create markup for each and to DOM */
+/** Given list of shows, create markup for each and add to DOM */
 
 function populateShows(shows) {
   $showsList.empty();
@@ -98,7 +92,6 @@ function populateShows(shows) {
 /** Handle search form submission: get shows from API and display.
  *    Hide episodes area (that only gets shown if they ask for episodes)
  */
-
 async function searchForShowAndDisplay() {
   const term = $("#searchForm-term").val();
   const shows = await getShowsByTerm(term);
@@ -113,21 +106,51 @@ $searchForm.on("submit", async function (evt) {
 });
 
 
-/** Given a show ID, get from API and return (promise) array of episodes:
- *      { id, name, season, number }
- */
 
-async function getEpisodesOfShow(id) { 
-  // let response = await axios.get(`${BASE_URL}/shows/${$(".show").attr("data-show-id")}/episodes`)
-  let response = await axios.get(`${TV_MAZE_BASE_URL}/shows/${id}/episodes`)
+/** Adds event handler on show list, with callback function getting episode data and displaying it to the DOM */
+$showsList.on("click","button", getAndPopulateEpisodes)
 
-  console.log(response);
+async function getAndPopulateEpisodes(evt) {
+  $("#episodesList").empty()
+  let id = $(evt.target).closest(".Show").attr("data-show-id");
+  let episodes = await getEpisodesOfShow(id);
+  populateEpisodes(episodes);
 }
 
-getEpisodesOfShow();
+/** Given an array of episodes, create html list elements and append to episodes list. Reveals hidden episode list */
+function populateEpisodes(episodes) {
+  
+  for (let episode of episodes) {
+    const $episode = $(
+      `<li>
+      ${episode.name} (season ${episode.season}, number ${episode.number})
+      </li>`
+      );
+    $("#episodesList").append($episode);
+  }
+  $episodesArea.show();
+}
+
+/** Given a show id, makes an AJAX request to grab episode data and returns an array of objects containing data for each episode */
+async function getEpisodesOfShow(id) {  
+  let response = await axios.get(`${TV_MAZE_BASE_URL}/shows/${id}/episodes`)
+  let episodes = [];
+  // response.data.slice --> get array of 10
+  // if map index reaches episodes_per_click, stop
+  for (let i = 0; i < EPISODES_PER_CLICK; i++) { // rename to MAX_EPISODES
+    // break the loop a show has fewer than 10 episodes
+    if (response.data[i] === undefined){
+      break;
+    }
+    let {id,name,season,number} = response.data[i];
+
+    // let id = response.data[i].id;
+    // let name = response.data[i].name;
+    // let season = response.data[i].season;
+    // let number = response.data[i].number;
+    episodes.push({id, name, season, number});
+  }
+  return episodes;
+}
 
 
-
-/** Write a clear docstring for this function... */
-
-// function populateEpisodes(episodes) { }
